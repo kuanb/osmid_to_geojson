@@ -1,0 +1,89 @@
+
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset='utf-8' />
+    <title></title>
+    <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+    <style>
+        body { margin:0; padding:0; }
+    </style>
+</head>
+
+<body>
+
+<h2>Get from OSM Ways ID</h2>
+<input type="text" id="ways-id">
+<button onClick="getFromWaysId()">Get GeoJSON</button>
+<div id="ways-id-output"></div>
+
+<script
+  src="https://code.jquery.com/jquery-3.2.1.min.js"
+  integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4="
+  crossorigin="anonymous"></script>
+
+<script>
+
+function getFromWaysId() {
+    var osmId = $('#ways-id').val();
+
+    if (osmId == '') {
+        return null;
+    } else if (isNaN(osmId)) {
+        return null;
+    }
+
+    // generate the url
+    var urlBase = 'https://www.overpass-api.de/api/interpreter';
+    var dataStr = '[out:json];way(' + osmId + ');(._;>;);out;';
+    
+    $.post(urlBase, {data: dataStr}, function(response) {
+        // generate base of the geojson
+        var complete = {
+            "type": "FeatureCollection",
+            "features": []
+        };
+        
+        var elements = response.elements;
+        console.log(elements)
+
+        // generate nodes reference
+        var nodes = {};
+        elements.forEach(function (ele) {
+            if (ele.type == 'node') {
+                nodes[ele.id] = {lat: ele.lat, lon: ele.lon};
+            }
+        });
+
+        // generate shapes and relations references
+        var wayShapes = elements.filter(function (ele) {
+            return ele.type == 'way';
+        });
+        
+        var waysVertices = wayShapes.map(function (ea) {
+            // use the nodes lookup to create a list of vertices
+            return ea.nodes.map(function (n) {
+                return [nodes[n].lon, nodes[n].lat];
+            });
+        });
+
+        complete.features.push({
+            type: 'Feature',
+            properties: {},
+            geometry: {
+                type: 'Polygon',
+                coordinates: [waysVertices],
+            }
+        });
+
+        var stringified = JSON.stringify(complete);
+        $('#ways-id-output').text(stringified);
+
+    }, 'json'); 
+};
+
+</script>
+
+</body>
+</html>
